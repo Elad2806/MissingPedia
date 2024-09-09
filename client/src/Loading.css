@@ -1,0 +1,67 @@
+/* Loading.css */
+
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+.loading-container {
+  font-family: 'Roboto', sans-serif;
+  background-color: #f0f2f5; /* Light background color */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 30vh;
+}
+
+.loading-container .loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  width: 400px; /* Set a fixed width */
+  height: 200px; /* Set a fixed height */
+}
+
+.loading-container .spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-top: 4px solid #3498db;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-container p {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+.loading-container .fact {
+  margin-top: 10px;
+  font-size: 1rem;
+  color: #555;
+  text-align: center;
+  max-width: 80%;
+  font-style: italic;
+  opacity: 1;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.loading-container .fade-in {
+  opacity: 1;
+}
+
+.loading-container .fade-out {
+  opacity: 0;
+}

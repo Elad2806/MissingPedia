@@ -1,0 +1,30 @@
+.selected-categories-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .selected-category-box {
+    display: flex;
+    align-items: center;
+    background-color: #f0f0f0;
+    border-radius: 16px;
+    padding: 4px 8px;
+    font-size: 14px;
+  }
+  
+  .remove-category-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 4px;
+    display: flex;
+    align-items: center;
+  }
+  
+  .remove-category-button:hover {
+    color: #ff0000;
+  }
