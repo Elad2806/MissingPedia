@@ -116,7 +116,6 @@ export default function App() {
     setSearchResults([]);
   
     try {
-      console.log(`${process.env.REACT_APP_API_URL}/api/search_categories?categories=${selectedCategories.join(',')}&task=${taskSelection}&target_language=${targetLanguage}`);
       const response = await fetch(
         `${process.env.REACT_APP_API_URL}/api/search_categories?categories=${selectedCategories.join(',')}&task=${taskSelection}&target_language=${targetLanguage}`
       );
