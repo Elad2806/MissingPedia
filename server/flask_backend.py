@@ -87,7 +87,7 @@ def search_categories():
         else:
             print("Calling expand_articles function")
             # Call expand_articles function here
-            return expand_articles(conn, cur, categories)
+            return expand_articles(conn, cur, categories,'en')
 
     except Exception as e:
         # Log the error message
@@ -178,7 +178,7 @@ def create_articles(conn, cur, categories):
     return jsonify(response)
 
 
-def expand_articles(conn, cur, categories):
+def expand_articles(conn, cur, categories, target_language):
     categories_placeholders = ', '.join(['%s'] * len(categories))
 
     sql_query = f"""
@@ -186,68 +186,102 @@ def expand_articles(conn, cur, categories):
         SELECT
             c.category_id::text AS category_id,
             c.category_title,
+            c.language,
             0 AS depth
         FROM
-            categories c
+            test_db.public.categories c
         WHERE
-            c.category_title::text IN ({categories_placeholders})
+            c.category_title IN ({categories_placeholders})
 
         UNION ALL
 
         SELECT
             cl.subcategory::text AS category_id,
             c.category_title,
+            c.language,
             ch.depth + 1 AS depth
         FROM
             CategoryHierarchy ch
         JOIN
-            category_links cl ON ch.category_title::text = cl.parent_category::text
+            test_db.public.category_links cl ON ch.category_title::text = cl.parent_category::text AND ch.language = cl.language
         JOIN
-            categories c ON cl.subcategory::text = c.category_id::text
+            test_db.public.categories c ON cl.subcategory::text = c.category_id::text AND c.language = cl.language
         WHERE
             ch.depth < 2
     ),
 
     PagesOfInterest AS (
-    SELECT DISTINCT pcl.page_id
-    FROM page_cat_link pcl
-    WHERE pcl.category IN (SELECT category_title FROM CategoryHierarchy)
-    LIMIT 10000
+        SELECT DISTINCT a.page_id, a.title, a.length, a.view_count, a.language,
+            ROUND(a.view_count::float / a.length * 100) / 100 AS len_views_ratio,
+            COUNT(*) OVER () AS distinct_page_count
+        FROM test_db.public.page_cat_link pcl
+        INNER JOIN test_db.public.articles a ON pcl.page_id = a.page_id
+        WHERE a.language = %s
+        AND (pcl.category, pcl.language) IN (SELECT category_title, language FROM CategoryHierarchy)
+        AND a.view_count IS NOT NULL
+        LIMIT 100
+    ),
+
+    OtherLanguagesData AS (
+        SELECT  
+            tpi.page_id as source_id,
+            tpi.title as source_title,
+            tpi.length as source_length, 
+            tpi.view_count as source_views,
+            tpi.len_views_ratio,
+            tpi.language as source_language,
+            ll.ll_from_lang as other_language,
+            ll.ll_from as other_id,
+            a.length as other_length, 
+            a.view_count as other_views, 
+            a.title as other_title,
+            distinct_page_count
+        FROM PagesOfInterest tpi 
+        INNER JOIN test_db.public.lang_links ll ON tpi.title = ll.ll_title and tpi.language = ll.ll_lang
+        INNER JOIN test_db.public.articles a ON ll.ll_from_lang = a.language AND ll.ll_from = a.page_id
+        ORDER BY tpi.len_views_ratio DESC
+        LIMIT 500
     )
 
-    SELECT a.page_id, a.title, a.length, a.view_count,
-    ROUND(a.view_count::float / a.length * 100) / 100 AS len_views_ratio,
-    COUNT(*) OVER () AS distinct_page_count
-    FROM PagesOfInterest poi
-    JOIN articles a ON poi.page_id = a.page_id
-    WHERE a.view_count IS NOT NULL
-    ORDER BY len_views_ratio DESC
-    LIMIT 20;
-
+    SELECT *
+    FROM OtherLanguagesData
     """
 
-    cur.execute(sql_query, categories)
+    cur.execute(sql_query, categories + [target_language])
     results = cur.fetchall()
 
-    distinct_pages_count = results[0][5] if results else 0  # Getting the distinct pages count from the first row
+    articles = {}
+    distinct_pages_count = results[0][-1] if results else 0
 
-    articles = []
     for row in results:
-        articles.append({
-            'page_id': row[0],
-            'title': row[1],
-            'contentLength': row[2],
-            'views': row[3],
-            'len_views_ratio': row[4]
+        source_id = row[0]
+        if source_id not in articles:
+            articles[source_id] = {
+                'source_id': source_id,
+                'source_title': row[1],
+                'source_length': row[2],
+                'source_views': row[3],
+                'len_views_ratio': row[4],
+                'source_language': row[5],
+                'other_languages': []
+            }
+        
+        articles[source_id]['other_languages'].append({
+            'language': row[6],
+            'id': row[7],
+            'length': row[8],
+            'views': row[9],
+            'title': row[10]
         })
 
-    cur.close()
-    conn.close()
-    print(articles)
     response = {
-        'articles': articles,
+        'articles': list(articles.values()),
         'distinct_pages_count': distinct_pages_count
     }
+    print("response",response)
+    cur.close()
+    conn.close()
+    
     return jsonify(response)
 
 

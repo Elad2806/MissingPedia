@@ -59,3 +59,21 @@
   .article-title:hover {
     text-decoration: underline;
   }
+
+  details {
+    margin-top: 10px;
+  }
+  
+  details summary {
+    cursor: pointer;
+    font-weight: bold;
+  }
+  
+  details ul {
+    margin-top: 5px;
+    padding-left: 20px;
+  }
+  
+  details li {
+    margin-bottom: 5px;
+  }
