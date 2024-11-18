@@ -18,13 +18,15 @@ import Footer from './Footer';
 import Dashboard from './Dashboard';
 import SearchOptionsModal from './SearchOptionsModal'; 
 import HowItWorks from './HowItWorks'; 
+import useFetchWatchlist from './utils/useFetchWatchlist';
+import Header from './Header';
+import { AlertProvider } from './AlertProvider';
 
 import './styles.css';
 import axios from 'axios';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [userInventory, setUserInventory] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,119 +42,116 @@ export default function App() {
   const [wikipediaUsername, setWikipediaUsername] = useState('');
   const [taskSelection, setTaskSelection] = useState('expand');
   const [targetLanguage, setTargetLanguage] = useState('en');
+  const [errorMessage, setErrorMessage] = useState('');
+
 
   useEffect(() => {
     // Function to check if the Wikipedia user is logged in by extracting the username from URL parameters
-    const checkWikipediaUser = () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const username = urlParams.get('username');
-      if (username) {
-        setWikipediaUsername(username); // Set Wikipedia username in state
+    const fetchUserData = async () => {
+      try {
+        console.log('Fetching user data...');
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/api/get-user-data`, { credentials: 'include' });
+        const data = await response.json();
+        console.log('User data:', data);
+        if (data.username) {
+          setWikipediaUsername(data.username);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
       }
     };
   
-    // Call the function to check Wikipedia user status
-    checkWikipediaUser();
+    fetchUserData();
   
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('User:', user);
+    // const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    //   console.log('User:', user);
   
-      if (user) {
-        setCurrentUser(user);
-        await fetchUserInventory(user.uid);
-      } else {
-        console.log("No user logged in");
-        setCurrentUser(null);
-        setUserInventory([]);
-      }
-    });
+    //   if (user) {
+    //     setCurrentUser(user);
+    //     await fetchUserInventory(user.uid);
+    //   } else {
+    //     console.log("No user logged in");
+    //     setCurrentUser(null);
+
+    //   }
+    // });
   
-    return () => unsubscribe();
+    return;
   }, []);
   
   useEffect(() => {
     // Runs whenever wikipediaUsername or currentUser changes
     if (wikipediaUsername) {
       console.log("fetching wikipedia watchlist");
-      fetchUserWatchlist(); // Fetch the watchlist after user is authenticated
+      //fetchUserWatchlist(); // Fetch the watchlist after user is authenticated
     }
-  }, [wikipediaUsername, currentUser]); // Dependency array to re-run effect when these states change
+  }, [wikipediaUsername]); // Dependency array to re-run effect when these states change
 
 
 
 
-  const fetchUserWatchlist = async () => {
-    try {
-      const response = await fetch('http://localhost:3000/fetch_watchlist', {
-        method: 'GET',
-        credentials: 'include',  // Include credentials in the request
-      });
-      const data = await response.json();
-      console.log('Watchlist:', data);
-      if (data.watchlist) {
-        const watchlistArticles = data.watchlist.map((title) => ( title ));
-        setUserInventory(watchlistArticles);
-        console.log('Watchlist articles:',  watchlistArticles);
+  const { userInventory, fetchUserWatchlist } = useFetchWatchlist(wikipediaUsername);
 
-      } else {
-        console.error('Failed to fetch watchlist:', data.error);
-      }
-    } catch (error) {
-      console.error('Error fetching watchlist:', error);
-    }
-  };
-
-  const fetchUserInventory = async (userId) => {
-    const userDoc = await getDoc(doc(db, 'users', userId));
-    if (userDoc.exists()) {
-      setUserInventory(userDoc.data().inventory || []);
-    }
-  };
+  // const fetchUserInventory = async (userId) => {
+  //   const userDoc = await getDoc(doc(db, 'users', userId));
+  //   if (userDoc.exists()) {
+  //     setUserInventory(userDoc.data().inventory || []);
+  //   }
+  // };
 
   const handleSearch = async () => {
     setIsLoading(true);
     setProgress(0);
     setDebugLog('');
     setSearchResults([]);
+    setErrorMessage(''); // Clear any previous errors
   
     try {
       const response = await fetch(
         `${process.env.REACT_APP_API_URL}/api/search_categories?categories=${selectedCategories.join(',')}&task=${taskSelection}&target_language=${targetLanguage}`
       );
-      console.log('Response:', response);
+  
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+  
       const data = await response.json();
-      console.log('Data:', data);
       setSearchResults(data.articles);
       setShowDashboard(true);
       setDistinctPagesCount(data.distinct_pages_count);
     } catch (error) {
       console.error('Error fetching articles:', error);
+      setErrorMessage('The server is currently unavailable. Please try again later or contact the developer: eladd.wikimedia@gmail.com');
     } finally {
       setIsLoading(false);
     }
   };
   
 
-  const addToInventory = async (article) => {
-    if (!currentUser) {
-      alert("Please login to add articles to your inventory.");
-      return;
-    }
-    if (!userInventory.some(item => item.title === article.title)) {
-      const newInventory = [...userInventory, article];
-      setUserInventory(newInventory);
-      await setDoc(doc(db, 'users', currentUser.uid), { inventory: newInventory }, { merge: true });
-    }
-  };
+  // const addToInventory = async (article) => {
+  //   if (!currentUser) {
+  //     alert("Please login to add articles to your inventory.");
+  //     return;
+  //   }
+  //   if (!userInventory.some(item => item.title === article.title)) {
+  //     const newInventory = [...userInventory, article];
+  //     setUserInventory(newInventory);
+  //     await setDoc(doc(db, 'users', currentUser.uid), { inventory: newInventory }, { merge: true });
+  //   }
+  // };
 
-  const removeFromInventory = async (title) => {
+  const removeFromInventory = async (article) => {
     try {
-      const response = await axios.post('http://localhost:3000/remove_from_watchlist', 
-        { title }, 
+      console.log('Removing item from inventory:', article.source_title);
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_URL}/remove_from_watchlist`, 
+        { title: { source_title: article.source_title } }, // Send nested source_title in request body
         { withCredentials: true }
       );
       if (response.data.success) {
-        setUserInventory(prevWatchlist => prevWatchlist.filter(item => item !== title));
+        console.log('Managed to remove item from watchlist');
+        fetchUserWatchlist();
+        //setUserInventory(prevWatchlist => prevWatchlist.filter(item => item !== article.source_title));
       } else {
         console.error('Failed to remove item from watchlist');
       }
@@ -163,12 +162,29 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await auth.signOut();
-      setShowDashboard(false);
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/logout`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Successfully logged out:', data.message);
+            setWikipediaUsername(null);
+            // Optionally redirect to home page or login page
+            window.location.href = '/';
+        } else {
+            console.error('Logout failed');
+            alert('Logout failed. Please try again.');
+        }
     } catch (error) {
-      console.error('Error signing out:', error);
+        console.error('Error during logout:', error);
+        alert('An error occurred during logout. Please try again.');
     }
-  };
+};
 
   const handleEditProfile = () => {
     setIsEditProfileModalOpen(true);
@@ -189,38 +205,43 @@ export default function App() {
     setSelectedCategories(selectedCategories.filter(category => category !== categoryToRemove));
   };
 
+  const handleWikipediaSignIn = async () => {
+    try {
+      console.log('Starting Wikipedia OAuth login at...');
+      console.log(`${process.env.REACT_APP_API_URL}/start_wiki_oauth`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/start_wiki_oauth`);
+      const data = await response.json();
+      console.log('Wikipedia OAuth data:', data);
+      window.location.href = data.authorization_url;
+    } catch (error) {
+      console.error('Wikipedia Sign-In error:', error);
+      alert(`Wikipedia Sign-In error: ${error.message}`);
+    }
+  };
   return (
+    <AlertProvider>
 <div id="container">
-  <h1>MissingPedia</h1>
-  {!currentUser ? (
-    <LoginForm
-      wikipediaUsername={wikipediaUsername} 
-      setWikipediaUsername={setWikipediaUsername}
-    />
-  ) : (
-    <div id="logoutSection">
-      <p>
-        Welcome, {currentUser.displayName || currentUser.email}!
-        {wikipediaUsername && (
-          <>
-            {' '}
-            <a id="editProfileLink" href="#" onClick={handleEditProfile}>
-              (Edit Profile)
-            </a>
-          </>
-        )}
-      </p>
-      {wikipediaUsername && <p>Wikipedia Username: {wikipediaUsername}</p>}
-      <button id="logoutButton" onClick={handleLogout}>Logout</button>
-    </div>
-  )}
-  {wikipediaUsername && <button onClick={() => setShowInventory(!showInventory)}>
-    {showInventory ? 'Hide' : 'Open'} Article Inventory
-  </button>}
+<Header 
+  wikipediaUsername={wikipediaUsername}
+  setWikipediaUsername={setWikipediaUsername}
+  handleLogout={handleLogout}
+  handleEditProfile={handleEditProfile}
+  handleWikipediaSignIn={handleWikipediaSignIn}
+  LoginForm={LoginForm}
+  userInventory={userInventory}
+  removeFromInventory={removeFromInventory}
+/>
+
   {showInventory && (
     <Inventory inventory={userInventory} onRemoveFromInventory={removeFromInventory} />
   )}
   <HowItWorks />
+  {errorMessage && (
+  <div className="error-banner">
+    <span>{errorMessage}</span>
+    <button className="close-button" onClick={() => setErrorMessage('')}>×</button>
+  </div>
+)}
       <CategorySearch
         selectedCategories={selectedCategories}
         onSearch={handleSearch}
@@ -241,8 +262,9 @@ export default function App() {
           articles={searchResults}
           currentUser={currentUser}
           userInventory={userInventory}
-          setUserInventory={setUserInventory}
           distinctPagesCount={distinctPagesCount}
+          removeFromInventory={removeFromInventory}
+          fetchUserWatchlist = {fetchUserWatchlist}
         />
       )}
 
@@ -278,5 +300,6 @@ export default function App() {
       />
       <Footer />
     </div>
+    </AlertProvider>
   );
 }

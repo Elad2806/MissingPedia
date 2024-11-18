@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './Loading.css'; // Make sure to import the CSS file
+import './Loading.css';
 
 export const Loading = () => {
   const [fact, setFact] = useState('');
@@ -32,7 +32,8 @@ export const Loading = () => {
     <div className="loading-container">
       <div className="loading-content">
         <div className="spinner"></div>
-        <p>Loading...</p>
+        <p className="loading-text">Searching...</p>
+        <p className="loading-subtext">This process can take a few minutes.</p>
         <p className={`fact ${fade ? 'fade-in' : 'fade-out'}`}>{fact}</p>
       </div>
     </div>
