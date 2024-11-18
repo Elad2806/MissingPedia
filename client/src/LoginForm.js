@@ -48,6 +48,32 @@ export const LoginForm = ({wikipediaUsername, setWikipediaUsername}) => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+        const response = await fetch(`${process.env.REACT_APP_API_URL}/logout`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Successfully logged out:', data.message);
+            setWikipediaUsername(null);
+            // Optionally redirect to home page or login page
+            window.location.href = '/';
+        } else {
+            console.error('Logout failed');
+            alert('Logout failed. Please try again.');
+        }
+    } catch (error) {
+        console.error('Error during logout:', error);
+        alert('An error occurred during logout. Please try again.');
+    }
+};
+
   const handleGoogleSignIn = async () => {
     try {
       const userCredential = await signInWithPopup(auth, googleProvider);
@@ -73,6 +99,8 @@ export const LoginForm = ({wikipediaUsername, setWikipediaUsername}) => {
 
   const handleWikipediaSignIn = async () => {
     try {
+      console.log('Starting Wikipedia OAuth login at...');
+      console.log(`${process.env.REACT_APP_API_URL}/start_wiki_oauth`);
       const response = await fetch(`${process.env.REACT_APP_API_URL}/start_wiki_oauth`);
       const data = await response.json();
       console.log('Wikipedia OAuth data:', data);
@@ -118,25 +146,33 @@ export const LoginForm = ({wikipediaUsername, setWikipediaUsername}) => {
         </>
       ) : (
         <div className="auth-button-row">
-    <button className="google-button" onClick={handleGoogleSignIn}>
+          
+    {/* <button className="google-button" onClick={handleGoogleSignIn}>
       <FcGoogle className="google-icon" />
       Sign in with Google
     </button>
     <button className="email-button" onClick={() => setShowEmailSignIn(true)}>
       <IoIosMail className="email-icon" />
       Sign in with email
-    </button>
+    </button> */}
+
+{!wikipediaUsername && (
     <button className="wikipedia-button" onClick={handleWikipediaSignIn}>
-      <FaWikipediaW className="wikipedia-icon" />
-      Sign in with Wikipedia (Soon™)
+    <FaWikipediaW className="wikipedia-icon" />
+    Sign in with Wikipedia
+  </button>
+      )}
+
+        </div>
+      )}
+{wikipediaUsername && (
+  <div className="wikipedia-info">
+    <h2>Welcome, {wikipediaUsername}!</h2>
+    <button className="logout-button" onClick={handleLogout}>
+      Log Out
     </button>
-        </div>
-      )}
-      {wikipediaUsername && (
-        <div className="wikipedia-info">
-          <h2>Welcome, {wikipediaUsername}!</h2>
-        </div>
-      )}
+  </div>
+)}
     </div>
   );
 };

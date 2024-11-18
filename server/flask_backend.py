@@ -1,5 +1,5 @@
 import requests
-from flask import Flask, jsonify, request, redirect, session
+from flask import Flask, jsonify, request, redirect, session, make_response
 from flask_cors import CORS
 import psycopg2
 import os
@@ -8,6 +8,7 @@ import logging
 from flask_session import Session
 from flask import Flask, send_from_directory
 from dotenv import load_dotenv
+import time
 # Load environment variables from .env file
 load_dotenv()
 # Configure logging
@@ -15,7 +16,16 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(leve
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='react_build')
-CORS(app, supports_credentials=True, origins=["http://localhost:3001", "https://missingpedia.toolforge.org"])
+# Configure CORS properly
+CORS(app, 
+     resources={
+         r"/*": {
+             "origins": ["http://localhost:3001", "https://missingpedia.toolforge.org", "http://localhost:3000"],
+             "supports_credentials": True,
+             "allow_headers": ["Content-Type", "Authorization"],
+             "methods": ["GET", "POST", "OPTIONS"]
+         }
+     })
 app.secret_key = os.environ.get('SECRET_KEY', 1234321)
 app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
@@ -25,7 +35,7 @@ client_secret = os.getenv('CLIENT_SECRET')
 redirect_uri = os.getenv('REDIRECT_URI')
 authorization_base_url = os.getenv('AUTHORIZATION_BASE_URL')
 token_url = os.getenv('TOKEN_URL')
-
+client_url = os.getenv('CLIENT_URL')
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -99,7 +109,7 @@ def create_articles(conn, cur, categories):
     categories_placeholders = ', '.join(['%s'] * len(categories))
 
     sql_query = f"""
-    WITH  RECURSIVE CategoryHierarchy AS (
+    WITH RECURSIVE CategoryHierarchy AS (
         SELECT
             c.category_id::text AS category_id,
             c.category_title,
@@ -131,8 +141,8 @@ def create_articles(conn, cur, categories):
         SELECT DISTINCT a.page_id, a.title, a.length, a.view_count,
             ROUND(a.view_count::float / a.length * 100) / 100 AS len_views_ratio,
             COUNT(*) OVER () AS distinct_page_count
-        FROM test_db.public.page_cat_link pcl
-        INNER JOIN test_db.public.articles a ON pcl.page_id = a.page_id
+        FROM page_cat_link pcl
+        INNER JOIN articles a ON pcl.page_id = a.page_id
         WHERE a.language = 'en'
         AND (pcl.category, pcl.language) IN (SELECT category_title, language FROM CategoryHierarchy)
         AND a.view_count IS NOT NULL
@@ -143,40 +153,41 @@ def create_articles(conn, cur, categories):
     FROM PagesOfInterest tpi
     WHERE NOT EXISTS (
         SELECT 1
-        FROM test_db.public.langlinks ll
+        FROM lang_links ll
         WHERE ll.ll_lang = 'en' AND REPLACE(tpi.title, '_', ' ') = ll.ll_title
-
     )
     ORDER BY len_views_ratio DESC
-    LIMIT 500;
-
-
+    LIMIT 20;
     """
 
     cur.execute(sql_query, categories)
     results = cur.fetchall()
 
+    articles = {}
     distinct_pages_count = results[0][5] if results else 0  # Getting the distinct pages count from the first row
 
-    articles = []
     for row in results:
-        articles.append({
-            'page_id': row[0],
-            'title': row[1],
-            'contentLength': row[2],
-            'views': row[3],
-            'len_views_ratio': row[4]
-        })
+        page_id = row[0]
+        if page_id not in articles:
+            articles[page_id] = {
+                'source_id': page_id,
+                'source_title': row[1],
+                'source_length': row[2],
+                'source_views': row[3],
+                'len_views_ratio': row[4],
+                'source_language': 'en',
+                'other_languages': []  # No other languages for this case
+            }
+
+    response = {
+        'articles': list(articles.values()),
+        'distinct_pages_count': distinct_pages_count
+    }
 
     cur.close()
     conn.close()
-    print(articles)
-    response = {
-        'articles': articles,
-        'distinct_pages_count': distinct_pages_count
-    }
+    print("response", response)
     return jsonify(response)
-
 
 def expand_articles(conn, cur, categories, target_language):
     categories_placeholders = ', '.join(['%s'] * len(categories))
@@ -189,7 +200,7 @@ def expand_articles(conn, cur, categories, target_language):
             c.language,
             0 AS depth
         FROM
-            test_db.public.categories c
+            categories c
         WHERE
             c.category_title IN ({categories_placeholders})
 
@@ -203,9 +214,9 @@ def expand_articles(conn, cur, categories, target_language):
         FROM
             CategoryHierarchy ch
         JOIN
-            test_db.public.category_links cl ON ch.category_title::text = cl.parent_category::text AND ch.language = cl.language
+            category_links cl ON ch.category_title::text = cl.parent_category::text AND ch.language = cl.language
         JOIN
-            test_db.public.categories c ON cl.subcategory::text = c.category_id::text AND c.language = cl.language
+            categories c ON cl.subcategory::text = c.category_id::text AND c.language = cl.language
         WHERE
             ch.depth < 2
     ),
@@ -214,8 +225,8 @@ def expand_articles(conn, cur, categories, target_language):
         SELECT DISTINCT a.page_id, a.title, a.length, a.view_count, a.language,
             ROUND(a.view_count::float / a.length * 100) / 100 AS len_views_ratio,
             COUNT(*) OVER () AS distinct_page_count
-        FROM test_db.public.page_cat_link pcl
-        INNER JOIN test_db.public.articles a ON pcl.page_id = a.page_id
+        FROM page_cat_link pcl
+        INNER JOIN articles a ON pcl.page_id = a.page_id
         WHERE a.language = %s
         AND (pcl.category, pcl.language) IN (SELECT category_title, language FROM CategoryHierarchy)
         AND a.view_count IS NOT NULL
@@ -237,8 +248,8 @@ def expand_articles(conn, cur, categories, target_language):
             a.title as other_title,
             distinct_page_count
         FROM PagesOfInterest tpi 
-        INNER JOIN test_db.public.lang_links ll ON tpi.title = ll.ll_title and tpi.language = ll.ll_lang
-        INNER JOIN test_db.public.articles a ON ll.ll_from_lang = a.language AND ll.ll_from = a.page_id
+        INNER JOIN lang_links ll ON tpi.title = ll.ll_title and tpi.language = ll.ll_lang
+        INNER JOIN articles a ON ll.ll_from_lang = a.language AND ll.ll_from = a.page_id
         ORDER BY tpi.len_views_ratio DESC
         LIMIT 500
     )
@@ -395,6 +406,38 @@ def generate_suggestions_from_edit_history(username):
     return top_suggestions
 
 
+@app.route('/logout')
+def logout():
+    try:
+        logger.info('Logging out user')
+        token = session.pop('wiki_oauth_token', None)
+        username = session.pop('username', None)
+
+        if token:
+            wikipedia = OAuth2Session(client_id, token=token)
+            revoke_url = 'https://en.wikipedia.org/w/api.php?action=logout&format=json'
+            revoke_response = wikipedia.post(revoke_url)
+            
+            if revoke_response.status_code == 200:
+                logger.info('Successfully revoked token')
+            else:
+                logger.warning(f'Failed to revoke token: {revoke_response.status_code}')
+
+        response = make_response({'message': 'Logged out successfully'})
+        response.delete_cookie('username', domain=None, samesite='Lax')
+        response.delete_cookie('access_token', domain=None, samesite='Lax')
+        
+        # Set CORS headers explicitly
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
+        response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin'))
+        
+        return response
+
+    except Exception as e:
+        logger.error(f'Error during logout: {e}')
+        return {'error': 'Error during logout'}, 500
+
+
 @app.route('/start_wiki_oauth')
 def start_wiki_oauth():
     try:
@@ -410,28 +453,111 @@ def start_wiki_oauth():
         return jsonify({'error': 'Failed to start OAuth process'}), 500
 
 
+# Modify your wiki_callback route to include expires_at
 @app.route('/wiki_login')
 def wiki_callback():
     try:
         logger.info('Received callback from Wikipedia OAuth')
+        logger.info(f'Request URL: {request.url}')
+        
         wikipedia = OAuth2Session(client_id, redirect_uri=redirect_uri)
-        token = wikipedia.fetch_token(token_url, client_secret=client_secret,
-                                      authorization_response=request.url)
+        token = wikipedia.fetch_token(
+            token_url, 
+            client_secret=client_secret, 
+            authorization_response=request.url
+        )
+        
+        # Add expires_at to token if not present
+        if 'expires_at' not in token and 'expires_in' in token:
+            token['expires_at'] = time.time() + float(token['expires_in'])
+            
         session['wiki_oauth_token'] = token
-        logger.debug(f'OAuth token received: {token}')
-
-        # Use the token to fetch the user's information
+        
         user_info = wikipedia.get('https://en.wikipedia.org/w/api.php?action=query&meta=userinfo&format=json')
         user_info_json = user_info.json()
         username = user_info_json['query']['userinfo']['name']
-        logger.debug(f'User info received: {username}')
         session['username'] = username
-        # Redirect to frontend with query parameters
-        return redirect(f'http://localhost:3001/wiki_login?username={username}&token={token["access_token"]}')
+        
+        # Create a response to set cookies
+        response = make_response(redirect(client_url))
+        response.set_cookie('username', username, httponly=True, secure=True)
+        response.set_cookie('access_token', token['access_token'], httponly=True, secure=True)
+        
+        return response
+        
     except Exception as e:
         logger.error(f'Error during OAuth callback: {e}')
-        return jsonify({'error': 'Failed to complete OAuth process'}), 500
+        return 'Error during callback', 500
 
+def token_is_expired(token):
+    """Check if the token is expired or about to expire in the next 5 minutes"""
+    if not token:
+        return False
+    # Get expiry time from token, default to 0 if not present
+    expires_at = token.get('expires_at', 0)
+    # Add 5 minutes buffer
+    return time.time() + 300 > expires_at
+
+def refresh_token_if_needed():
+    """Refresh the token if it exists and is expired"""
+    token = session.get('wiki_oauth_token')
+    
+    if not token:
+        return None
+        
+    if token_is_expired(token):
+        try:
+            wikipedia = OAuth2Session(client_id, token=token)
+            new_token = wikipedia.refresh_token(
+                token_url,
+                refresh_token=token.get('refresh_token'),
+                client_id=client_id,
+                client_secret=client_secret
+            )
+            
+            # Update session with new token
+            session['wiki_oauth_token'] = new_token
+            
+            # Update cookies if needed
+            if 'access_token' in request.cookies:
+                response = make_response()
+                response.set_cookie(
+                    'access_token', 
+                    new_token['access_token'], 
+                    httponly=True, 
+                    secure=True
+                )
+                
+            logger.debug('Token refreshed successfully')
+            return new_token
+            
+        except Exception as e:
+            logger.error(f'Error refreshing token: {e}')
+            # If refresh fails, remove the token
+            session.pop('wiki_oauth_token', None)
+            return None
+            
+    return token
+
+@app.before_request
+def check_token():
+    """Before each request, check and refresh token if necessary"""
+    # Skip token check for OAuth routes and static files
+    if request.endpoint in ['start_wiki_oauth', 'wiki_callback'] or \
+       request.path.startswith('/static/'):
+        return
+        
+    refresh_token_if_needed()
+
+
+@app.route('/api/get-user-data')
+def get_user_data():
+    username = request.cookies.get('username')
+    logger.debug(f'Username from cookies: {username}')
+    if username:
+        return {'username': username}
+    else:
+        return {'error': 'No user data found'}, 401
 
 @app.route('/fetch_watchlist', methods=['GET'])
 def fetch_watchlist():
@@ -481,73 +607,169 @@ def fetch_watchlist():
 @app.route('/remove_from_watchlist', methods=['POST'])
 def remove_from_inventory():
     try:
-        # Check if user is authenticated
-        token = session.get('wiki_oauth_token')
-        if not token:
+        # Try cookies first, then fall back to session
+        access_token = request.cookies.get('access_token')
+        if not access_token and 'wiki_oauth_token' in session:
+            access_token = session['wiki_oauth_token']['access_token']
+            
+        if not access_token:
+            logger.error('User not authenticated or token missing')
+            return jsonify({'error': 'User not authenticated'}), 401
+        logger.debug(f"content of request {request.json}")
+        title_to_remove = request.json.get('title').get('source_title')
+        logger.debug(f'Title to remove: {title_to_remove}')
+        if not title_to_remove:
+            logger.warning('No title provided in the request')
+            return jsonify({'error': 'No title provided'}), 400
+
+        # Create Wikipedia session with proper headers
+        wikipedia = OAuth2Session(client_id)
+        wikipedia.headers.update({
+            'User-Agent': 'MissingpediaToolforge/1.0',
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json'
+        })
+
+        api_url = 'https://en.wikipedia.org/w/api.php'
+        
+        # Try to get a watch token instead of csrf token
+        token_params = {
+            'action': 'query',
+            'meta': 'tokens',
+            'type': 'watch',  # Changed from csrf to watch
+            'format': 'json'
+        }
+        
+        token_response = wikipedia.get(api_url, params=token_params)
+        logger.debug(f'Token response: {token_response.text}')
+        
+        try:
+            watch_token = token_response.json()['query']['tokens']['watchtoken']
+            logger.debug(f'Got watch token: {watch_token[:5]}...')
+        except (KeyError, TypeError) as e:
+            logger.error(f'Failed to extract watch token: {e}')
+            return jsonify({'error': 'Failed to retrieve watch token'}), 500
+
+        # Remove from watchlist using watch token
+        remove_data = {
+            'action': 'watch',
+            'format': 'json',
+            'titles': title_to_remove,
+            'unwatch': '1',
+            'token': watch_token
+        }
+
+        remove_response = wikipedia.post(
+            api_url,
+            data=remove_data,
+            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+        )
+        
+        logger.debug(f'Unwatch response: {remove_response.text}')
+
+        response_json = remove_response.json()
+        if 'error' not in response_json:
+            logger.info(f'Successfully removed {title_to_remove} from watchlist')
+            return jsonify({'success': True, 'message': f'{title_to_remove} removed from watchlist'})
+        else:
+            error_info = response_json.get('error', {})
+            logger.error(f'API Error: {error_info}')
+            return jsonify({
+                'error': 'Failed to remove from watchlist',
+                'details': error_info.get('info', 'Unknown error')
+            }), 500
+
+    except Exception as e:
+        logger.error(f'Error removing from watchlist: {e}', exc_info=True)
+        return jsonify({'error': 'Failed to remove from watchlist'}), 500
+
+
+@app.route('/add_to_watchlist', methods=['POST'])
+def add_to_watchlist():
+    try:
+        # Try cookies first, then fall back to session
+        access_token = request.cookies.get('access_token')
+        if not access_token and 'wiki_oauth_token' in session:
+            access_token = session['wiki_oauth_token']['access_token']
+            
+        if not access_token:
             logger.error('User not authenticated or token missing')
             return jsonify({'error': 'User not authenticated'}), 401
 
-        # Get the title to remove from the request
-        data = request.json
-        title_to_remove = data.get('title')
-        if not title_to_remove:
-            return jsonify({'error': 'No title provided'}), 400
+        article_data = request.json.get('title')
+        if not article_data:
+            logger.warning('No article data provided in the request')
+            return jsonify({'error': 'No article data provided'}), 400
 
-        # Initialize session
-        s = requests.Session()
-
-        # Step 1: Get login token
-        r1 = s.get('https://en.wikipedia.org/w/api.php', params={
-            'action': 'query',
-            'meta': 'tokens',
-            'type': 'login',
-            'format': 'json'
-        })
-
-        login_token = r1.json()['query']['tokens']['logintoken']
-
-        # Step 2: Send a POST request to log in
-        r2 = s.post('https://en.wikipedia.org/w/api.php', data={
-            'action': 'clientlogin',
-            'username': session.get('username'),
-            'password': token['access_token'],  # Use the access token as the password
-            'logintoken': login_token,
-            'loginreturnurl': 'http://localhost:3000/',
-            'format': 'json'
-        })
-
-        if r2.json()['clientlogin']['status'] != 'PASS':
-            logger.error('Failed to log in')
-            return jsonify({'error': 'Failed to authenticate'}), 401
-
-        # Step 3: Get CSRF token
-        r3 = s.get('https://en.wikipedia.org/w/api.php', params={
-            'action': 'query',
-            'meta': 'tokens',
-            'format': 'json'
-        })
-
-        csrf_token = r3.json()['query']['tokens']['csrftoken']
-
-        # Step 4: Remove the page from the watchlist
-        r4 = s.post('https://en.wikipedia.org/w/api.php', data={
-            'action': 'watch',
-            'titles': title_to_remove,
-            'unwatch': '1',
-            'token': csrf_token,
-            'format': 'json'
-        })
-
-        if 'error' not in r4.json():
-            logger.info(f'Successfully removed {title_to_remove} from watchlist')
-            return jsonify({'success': True, 'message': f'{title_to_remove} removed from inventory'})
+        # Extract the title from the article object
+        if isinstance(article_data, dict):
+            title_to_add = article_data.get('source_title')
         else:
-            logger.error(f'Failed to remove {title_to_remove} from watchlist: {r4.json()}')
-            return jsonify({'error': 'Failed to remove from inventory'}), 500
+            title_to_add = article_data  # Fallback if a simple string is provided
+
+        if not title_to_add:
+            logger.warning('Could not extract title from article data')
+            return jsonify({'error': 'No valid title found in article data'}), 400
+
+        # Create Wikipedia session with proper headers
+        wikipedia = OAuth2Session(client_id)
+        wikipedia.headers.update({
+            'User-Agent': 'MissingpediaToolforge/1.0',
+            'Authorization': f'Bearer {access_token}',
+            'Accept': 'application/json'
+        })
+
+        api_url = 'https://en.wikipedia.org/w/api.php'
+        
+        # Get watch token
+        token_params = {
+            'action': 'query',
+            'meta': 'tokens',
+            'type': 'watch',
+            'format': 'json'
+        }
+        
+        token_response = wikipedia.get(api_url, params=token_params)
+        logger.debug(f'Token response: {token_response.text}')
+        
+        try:
+            watch_token = token_response.json()['query']['tokens']['watchtoken']
+            logger.debug(f'Got watch token: {watch_token[:5]}...')
+        except (KeyError, TypeError) as e:
+            logger.error(f'Failed to extract watch token: {e}')
+            return jsonify({'error': 'Failed to retrieve watch token'}), 500
+
+        # Add to watchlist using watch token
+        add_data = {
+            'action': 'watch',
+            'format': 'json',
+            'titles': title_to_add,
+            'token': watch_token
+        }
+
+        add_response = wikipedia.post(
+            api_url,
+            data=add_data,
+            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+        )
+        
+        logger.debug(f'Watch response: {add_response.text}')
+
+        response_json = add_response.json()
+        if 'error' not in response_json:
+            logger.info(f'Successfully added {title_to_add} to watchlist')
+            return jsonify({'success': True, 'message': f'{title_to_add} added to watchlist'})
+        else:
+            error_info = response_json.get('error', {})
+            logger.error(f'API Error: {error_info}')
+            return jsonify({
+                'error': 'Failed to add to watchlist',
+                'details': error_info.get('info', 'Unknown error')
+            }), 500
 
     except Exception as e:
-        logger.error(f'Error removing from inventory: {e}')
-        return jsonify({'error': 'Failed to remove from inventory'}), 500
+        logger.error(f'Error adding to watchlist: {e}', exc_info=True)
+        return jsonify({'error': 'Failed to add to watchlist'}), 500
 
 
 if __name__ == '__main__':

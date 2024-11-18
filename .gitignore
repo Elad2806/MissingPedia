@@ -8,7 +8,9 @@
 
 # testing
 /coverage
-
+/server/flask_session/
+**/flask_session/
+**/.idea/
 # production
 /build
 
