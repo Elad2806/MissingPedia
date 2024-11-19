@@ -187,14 +187,14 @@ const Dashboard = ({ categories, articles, currentUser, userInventory, distinctP
                     color="secondary" 
                     onClick={() => removeFromInventory(article)}
                   >
-                    Remove from Inventory
+                    Remove from Watchlist
                   </StyledButton>
                 ) : (
                   <StyledButton 
                     variant="contained" 
                     onClick={() => addToWatchlist(article)}
                   >
-                    Add to Inventory
+                    Add to Watchlist
                   </StyledButton>
                 )}
               </RightContent>

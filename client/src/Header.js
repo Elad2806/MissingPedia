@@ -116,13 +116,13 @@ const Header = ({
                 </Typography>
               </LogoContainer>
 
+
               {!wikipediaUsername ? (
-                <LoginForm 
-                  wikipediaUsername={wikipediaUsername}
-                  setWikipediaUsername={setWikipediaUsername}
-                  handleWikipediaSignIn={handleWikipediaSignIn}
-                />
-              ) : (
+                <button className="wikipedia-button" onClick={handleWikipediaSignIn}>
+                <FaWikipediaW className="wikipedia-icon" />
+                Sign in with Wikipedia
+              </button>
+                ) : (
                 <UserAvatarButton 
                   onClick={handleUserMenuOpen}
                   sx={{ 

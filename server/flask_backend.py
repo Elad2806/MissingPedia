@@ -96,8 +96,13 @@ def search_categories():
             return create_articles(conn, cur, categories)
         else:
             print("Calling expand_articles function")
+            lang = request.args.get('expandLanguage', 'en')
+            if lang == "Hebrew":
+                lang = "he"
+            else:
+                lang = 'en'
             # Call expand_articles function here
-            return expand_articles(conn, cur, categories,'en')
+            return expand_articles(conn, cur, categories, lang)
 
     except Exception as e:
         # Log the error message

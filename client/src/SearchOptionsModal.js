@@ -1,12 +1,25 @@
 import React, { useState } from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
+import { Modal, Button, Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import './SearchOptionsModal.css';
 
-export const SearchOptionsModal = ({ isOpen, onClose, taskSelection, setTaskSelection, targetLanguage }) => {
+export const SearchOptionsModal = ({ 
+  isOpen, 
+  onClose, 
+  taskSelection, 
+  setTaskSelection, 
+  targetLanguage,
+  setTargetLanguage,
+  expandLanguage,
+  setExpandLanguage 
+}) => {
   const handleTaskChange = (event) => {
     setTaskSelection(event.target.value);
     console.log('Task Selection:', event.target.value);
   };
+
+  const renderTooltip = (text) => (
+    <Tooltip>{text}</Tooltip>
+  );
 
   return (
     <div>
@@ -21,25 +34,64 @@ export const SearchOptionsModal = ({ isOpen, onClose, taskSelection, setTaskSele
               <div>
                 <Form.Check
                   type="radio"
-                  label="Expand Articles"
+                  label={
+                    <>
+                      Expand Articles{' '}
+                      <OverlayTrigger
+                        placement="right"
+                        overlay={renderTooltip("Returns a list of existing articles in the specified language that need to be expanded")}
+                      >
+                        <span className="text-info">?</span>
+                      </OverlayTrigger>
+                    </>
+                  }
                   value="expand"
                   checked={taskSelection === 'expand'}
                   onChange={handleTaskChange}
                 />
                 <Form.Check
                   type="radio"
-                  label="Create New Articles"
+                  label={
+                    <>
+                      Create New Articles{' '}
+                      <OverlayTrigger
+                        placement="right"
+                        overlay={renderTooltip("Returns a list of missing articles in the target language that exist in the reference language")}
+                      >
+                        <span className="text-info">?</span>
+                      </OverlayTrigger>
+                    </>
+                  }
                   value="create"
                   checked={taskSelection === 'create'}
                   onChange={handleTaskChange}
                 />
               </div>
             </Form.Group>
+
+            {taskSelection === 'expand' && (
+              <Form.Group controlId="expandLanguage">
+                <Form.Label>Select Language</Form.Label>
+                <Form.Control 
+                  as="select" 
+                  value={expandLanguage} 
+                  onChange={(e) => setExpandLanguage(e.target.value)}
+                >
+                  <option>English</option>
+                  {/* <option>Hebrew</option> */}
+                </Form.Control>
+              </Form.Group>
+            )}
+
             {taskSelection === 'create' && (
               <>
                 <Form.Group controlId="targetLanguage">
                   <Form.Label>Target Language</Form.Label>
-                  <Form.Control as="select" value={targetLanguage} readOnly>
+                  <Form.Control 
+                    as="select" 
+                    value={targetLanguage} 
+                    onChange={(e) => setTargetLanguage(e.target.value)}
+                  >
                     <option>Hebrew</option>
                   </Form.Control>
                 </Form.Group>

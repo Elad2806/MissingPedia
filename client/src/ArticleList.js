@@ -26,7 +26,7 @@ export const ArticleList = ({ articles, onAddToInventory }) => {
               <p>Views: {article.views}</p>
               <p>Language Versions: {article.languageCount}</p>
               <button onClick={() => onAddToInventory(article)}>
-                Add to Inventory
+                Add to Watchlist
               </button>
             </div>
           </li>
