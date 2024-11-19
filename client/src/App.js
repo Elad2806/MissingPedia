@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from './Firebase'; // Make sure this path is correct
+import { auth, db } from './Firebase'; 
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { LoginForm } from './LoginForm';
 import { CategorySearch } from './CategorySearch';
@@ -37,11 +37,12 @@ export default function App() {
   const [distinctPagesCount, setDistinctPagesCount] = useState(0);
   const [showInventory, setShowInventory] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
-  const [isSuggestedCategoriesModalOpen, setIsSuggestedCategoriesModalOpen] = useState(false); // State for SuggestedCategoriesModal
+  const [isSuggestedCategoriesModalOpen, setIsSuggestedCategoriesModalOpen] = useState(false); 
   const [isSearchOptionsModalOpen, setIsSearchOptionsModalOpen] = useState(false);
   const [wikipediaUsername, setWikipediaUsername] = useState('');
   const [taskSelection, setTaskSelection] = useState('expand');
   const [targetLanguage, setTargetLanguage] = useState('en');
+  const [expandLanguage, setExpandLanguage] = useState('en');
   const [errorMessage, setErrorMessage] = useState('');
 
 
@@ -52,7 +53,6 @@ export default function App() {
         console.log('Fetching user data...');
         const response = await fetch(`${process.env.REACT_APP_API_URL}/api/get-user-data`, { credentials: 'include' });
         const data = await response.json();
-        console.log('User data:', data);
         if (data.username) {
           setWikipediaUsername(data.username);
         }
@@ -63,18 +63,6 @@ export default function App() {
   
     fetchUserData();
   
-    // const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    //   console.log('User:', user);
-  
-    //   if (user) {
-    //     setCurrentUser(user);
-    //     await fetchUserInventory(user.uid);
-    //   } else {
-    //     console.log("No user logged in");
-    //     setCurrentUser(null);
-
-    //   }
-    // });
   
     return;
   }, []);
@@ -87,28 +75,18 @@ export default function App() {
     }
   }, [wikipediaUsername]); // Dependency array to re-run effect when these states change
 
-
-
-
   const { userInventory, fetchUserWatchlist } = useFetchWatchlist(wikipediaUsername);
-
-  // const fetchUserInventory = async (userId) => {
-  //   const userDoc = await getDoc(doc(db, 'users', userId));
-  //   if (userDoc.exists()) {
-  //     setUserInventory(userDoc.data().inventory || []);
-  //   }
-  // };
 
   const handleSearch = async () => {
     setIsLoading(true);
     setProgress(0);
     setDebugLog('');
     setSearchResults([]);
-    setErrorMessage(''); // Clear any previous errors
+    setErrorMessage(''); 
   
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/search_categories?categories=${selectedCategories.join(',')}&task=${taskSelection}&target_language=${targetLanguage}`
+        `${process.env.REACT_APP_API_URL}/api/search_categories?categories=${selectedCategories.join(',')}&task=${taskSelection}&target_language=${targetLanguage}&expandLanguage=${expandLanguage}`,
       );
   
       if (!response.ok) {
@@ -127,19 +105,6 @@ export default function App() {
     }
   };
   
-
-  // const addToInventory = async (article) => {
-  //   if (!currentUser) {
-  //     alert("Please login to add articles to your inventory.");
-  //     return;
-  //   }
-  //   if (!userInventory.some(item => item.title === article.title)) {
-  //     const newInventory = [...userInventory, article];
-  //     setUserInventory(newInventory);
-  //     await setDoc(doc(db, 'users', currentUser.uid), { inventory: newInventory }, { merge: true });
-  //   }
-  // };
-
   const removeFromInventory = async (article) => {
     try {
       console.log('Removing item from inventory:', article.source_title);
@@ -151,7 +116,6 @@ export default function App() {
       if (response.data.success) {
         console.log('Managed to remove item from watchlist');
         fetchUserWatchlist();
-        //setUserInventory(prevWatchlist => prevWatchlist.filter(item => item !== article.source_title));
       } else {
         console.error('Failed to remove item from watchlist');
       }
@@ -174,7 +138,7 @@ export default function App() {
             const data = await response.json();
             console.log('Successfully logged out:', data.message);
             setWikipediaUsername(null);
-            // Optionally redirect to home page or login page
+            //  redirect to home page or login page
             window.location.href = '/';
         } else {
             console.error('Logout failed');
@@ -286,9 +250,10 @@ export default function App() {
       <SuggestedCategoriesModal
         isOpen={isSuggestedCategoriesModalOpen}
         onClose={() => setIsSuggestedCategoriesModalOpen(false)}
-        userInventory={userInventory} // Pass the user inventory to the modal
-        setSelectedCategories={setSelectedCategories} // Pass the setSelectedCategories function to the modal
-        selectedCategories={selectedCategories} // Pass the selected categories to the modal
+        userInventory={userInventory} 
+        setSelectedCategories={setSelectedCategories} 
+        selectedCategories={selectedCategories}
+        wikipediaUsername={wikipediaUsername} 
       />
       <SearchOptionsModal
         isOpen={isSearchOptionsModalOpen}
@@ -297,6 +262,8 @@ export default function App() {
         setTaskSelection={setTaskSelection}
         targetLanguage={targetLanguage}
         setTargetLanguage={setTargetLanguage}
+        expandLanguage={expandLanguage}
+        setExpandLanguage={setExpandLanguage}
       />
       <Footer />
     </div>
