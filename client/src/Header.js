@@ -11,13 +11,15 @@ import {
   List,
   ListItem,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  IconButton
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import LogoutIcon from '@mui/icons-material/Logout';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import { FaWikipediaW } from 'react-icons/fa';
 import { Inventory } from './Inventory';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 const GradientAppBar = styled(AppBar)(({ theme }) => ({
   background: 'linear-gradient(135deg, #002a5a 0%, #3366cc 100%)',
@@ -44,7 +46,7 @@ const UserAvatarButton = styled(Box)(({ theme }) => ({
   cursor: 'pointer',
   borderRadius: theme.shape.borderRadius,
   padding: theme.spacing(1),
-  transition: 'background-color 0.2s',
+  transition: 'all 0.2s',
   '&:hover': {
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
@@ -118,7 +120,7 @@ const Header = ({
 
 
               {!wikipediaUsername ? (
-                <button className="wikipedia-button" onClick={handleWikipediaSignIn}>
+                <button className="wikipedia-button" id="signInButton" onClick={handleWikipediaSignIn}>
                 <FaWikipediaW className="wikipedia-icon" />
                 Sign in with Wikipedia
               </button>
@@ -128,7 +130,8 @@ const Header = ({
                   sx={{ 
                     display: 'flex', 
                     alignItems: 'center', 
-                    gap: 2 
+                    gap: 2,
+                    pr: 1 // Add padding to the right for the arrow
                   }}
                 >
                   <Avatar 
@@ -153,6 +156,13 @@ const Header = ({
                   >
                     {wikipediaUsername}
                   </Typography>
+                  <KeyboardArrowDownIcon 
+                    sx={{
+                      color: 'white',
+                      transition: 'transform 0.2s',
+                      transform: Boolean(anchorEl) ? 'rotate(180deg)' : 'rotate(0)',
+                    }}
+                  />
                 </UserAvatarButton>
               )}
             </HeaderWrapper>

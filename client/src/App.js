@@ -21,6 +21,9 @@ import HowItWorks from './HowItWorks';
 import useFetchWatchlist from './utils/useFetchWatchlist';
 import Header from './Header';
 import { AlertProvider } from './AlertProvider';
+import Joyride from 'react-joyride';
+import { tourSteps, tourStyles, tourLocale, tourConfig, tourCallbacks } from './config/tourConfig';
+
 
 import './styles.css';
 import axios from 'axios';
@@ -44,6 +47,7 @@ export default function App() {
   const [targetLanguage, setTargetLanguage] = useState('en');
   const [expandLanguage, setExpandLanguage] = useState('en');
   const [errorMessage, setErrorMessage] = useState('');
+  const [runTour, setRunTour] = useState(false);
 
 
   useEffect(() => {
@@ -185,6 +189,14 @@ export default function App() {
   return (
     <AlertProvider>
 <div id="container">
+<Joyride
+  steps={tourSteps}
+  run={runTour}
+  {...tourConfig}
+  styles={tourStyles}
+  locale={tourLocale}
+  callback={(data) => tourCallbacks.handleJoyrideCallback(data, setRunTour)}
+/>
 <Header 
   wikipediaUsername={wikipediaUsername}
   setWikipediaUsername={setWikipediaUsername}
@@ -199,7 +211,7 @@ export default function App() {
   {showInventory && (
     <Inventory inventory={userInventory} onRemoveFromInventory={removeFromInventory} />
   )}
-  <HowItWorks />
+  <HowItWorks startTour={() => tourCallbacks.startTour(setRunTour)} isLoggedIn={Boolean(wikipediaUsername)} />
   {errorMessage && (
   <div className="error-banner">
     <span>{errorMessage}</span>
@@ -221,15 +233,17 @@ export default function App() {
           <ProgressBar progress={progress} />
         </>
       ) : (
-        <Dashboard
-          categories={selectedCategories}
-          articles={searchResults}
-          currentUser={currentUser}
-          userInventory={userInventory}
-          distinctPagesCount={distinctPagesCount}
-          removeFromInventory={removeFromInventory}
-          fetchUserWatchlist = {fetchUserWatchlist}
-        />
+        <>
+          <Dashboard
+            categories={selectedCategories}
+            articles={searchResults}
+            currentUser={currentUser}
+            userInventory={userInventory}
+            distinctPagesCount={distinctPagesCount}
+            removeFromInventory={removeFromInventory}
+            fetchUserWatchlist = {fetchUserWatchlist}
+          />
+        </>
       )}
 
       <DebugLog log={debugLog} />

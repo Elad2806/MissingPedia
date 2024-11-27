@@ -35,19 +35,30 @@ export const CategorySearch = ({ selectedCategories, onSearch, onOpenModal, setS
   };
 
   return (
-    
     <div className="category-search">
-              <div className="button-group">
-          <Button variant="primary" id="openCategoryDialogBtn" onClick={onOpenModal}>
-            Choose Categories
-          </Button>
-          <Button variant="secondary" onClick={onOpenSearchOptions}>
-            Search Options
-          </Button>
-          <Button variant="info" id="suggestCategoriesButton" onClick={handleSuggestCategories}>
-            Suggest Me Categories
-          </Button>
-        </div>
+      <div className="button-group">
+        <Button
+          variant="primary"
+          id="openCategoryDialogBtn"
+          onClick={onOpenModal}
+        >
+          Choose Categories
+        </Button>
+        <Button
+          variant="secondary"
+          id="searchOptionsButton"
+          onClick={onOpenSearchOptions}
+        >
+          Search Options
+        </Button>
+        <Button
+          variant="info"
+          id="suggestCategoriesButton"
+          onClick={handleSuggestCategories}
+        >
+          Suggest Me Categories
+        </Button>
+      </div>
       <div id="suggestions" className="list-group">
         {suggestions.map((suggestion, index) => (
           <button

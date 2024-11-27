@@ -147,15 +147,6 @@ export const LoginForm = ({wikipediaUsername, setWikipediaUsername}) => {
       ) : (
         <div className="auth-button-row">
           
-    {/* <button className="google-button" onClick={handleGoogleSignIn}>
-      <FcGoogle className="google-icon" />
-      Sign in with Google
-    </button>
-    <button className="email-button" onClick={() => setShowEmailSignIn(true)}>
-      <IoIosMail className="email-icon" />
-      Sign in with email
-    </button> */}
-
 {!wikipediaUsername && (
     <button className="wikipedia-button" onClick={handleWikipediaSignIn}>
     <FaWikipediaW className="wikipedia-icon" />

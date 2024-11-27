@@ -76,7 +76,21 @@ const StyledAccordion = styled(Accordion)(({ theme }) => ({
   border: '1px solid #ddd', // Border around accordion
 }));
 
-const Dashboard = ({ categories, articles, currentUser, userInventory, distinctPagesCount, removeFromInventory, fetchUserWatchlist }) => {
+const SummaryCard = styled(Card)(({ theme }) => ({
+  margin: theme.spacing(2, 0),
+  padding: theme.spacing(3),
+  backgroundColor: '#fafafa',
+}));
+
+const SummaryTitle = styled(Typography)(({ theme }) => ({
+  marginBottom: theme.spacing(2),
+}));
+
+const CategoryChip = styled(Chip)(({ theme }) => ({
+  margin: theme.spacing(0.5),
+}));
+
+const Dashboard = ({ categories, articles, currentUser, userInventory, distinctPagesCount, removeFromInventory, fetchUserWatchlist, taskType }) => {
   const [articleImages, setArticleImages] = useState({});
   const showAlert = useAlert();
   useEffect(() => {
@@ -142,67 +156,107 @@ const Dashboard = ({ categories, articles, currentUser, userInventory, distinctP
   // };
 
   return (
-    <List>
-      {articles.map((article) => (
-        <ListItem key={article.source_id} disablePadding>
-          <StyledCard>
-            <StyledCardMedia
-              component="img"
-              image={articleImages[article.source_title] || createPlaceholderImage()}
-              alt={article.source_title}
-            />
-            <ContentWrapper>
-              <LeftContent>
-                <Typography variant="h6">
-                  <Link
-                    href={`https://${article.source_language}.wikipedia.org/wiki/${article.source_title.replace(/ /g, '_')}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    color="inherit"
-                  >
-                    {article.source_title.replace(/_/g, ' ')}
-                  </Link>
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Length: {article.source_length || 0} characters
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Views (last 30 days): {article.source_views || 0}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Views/Content Ratio: {(article.len_views_ratio || 0).toFixed(4)}
-                </Typography>
-                
-                {article.other_languages.length > 0 && (
-  <LanguagesDropdown languages={article.other_languages} />
-)}
+    <>
+      <SummaryCard>
+        <SummaryTitle variant="h5" align="center">
+          Search Summary
+        </SummaryTitle>
+        <Grid container spacing={2} justifyContent="center">
+          <Grid item xs={12} sm={6} md={4}>
+            <Typography variant="subtitle1" align="center">
+              Number of Scanned Articles
+            </Typography>
+            <Typography variant="h4" align="center" color="primary">
+              {distinctPagesCount}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <Typography variant="subtitle1" align="center">
+              Task Type
+            </Typography>
+            <Typography variant="h6" align="center" color="primary">
+              {taskType === 'expand' ? 'Expand Articles' : 'Create Missing Articles'}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <Typography variant="subtitle1" align="center">
+              Categories Selected
+            </Typography>
+            <Grid container justifyContent="center">
+              {categories.map((category) => (
+                <CategoryChip
+                  key={category}
+                  label={category}
+                  variant="outlined"
+                />
+              ))}
+            </Grid>
+          </Grid>
+        </Grid>
+      </SummaryCard>
 
-                
-              </LeftContent>
-              <RightContent>
+      <List>
+        {articles.map((article) => (
+          <ListItem key={article.source_id} disablePadding>
+            <StyledCard>
+              <StyledCardMedia
+                component="img"
+                image={articleImages[article.source_title] || createPlaceholderImage()}
+                alt={article.source_title}
+              />
+              <ContentWrapper>
+                <LeftContent>
+                  <Typography variant="h6">
+                    <Link
+                      href={`https://${article.source_language}.wikipedia.org/wiki/${article.source_title.replace(/ /g, '_')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      color="inherit"
+                    >
+                      {article.source_title.replace(/_/g, ' ')}
+                    </Link>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Length: {article.source_length || 0} characters
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Views (last 30 days): {article.source_views || 0}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Views/Content Ratio: {(article.len_views_ratio || 0).toFixed(4)}
+                  </Typography>
+                  
+                  {article.other_languages.length > 0 && (
+    <LanguagesDropdown languages={article.other_languages} />
+  )}
 
-                {userInventory.some(item => item === article.source_title) ? (
-                  <StyledButton 
-                    variant="contained" 
-                    color="secondary" 
-                    onClick={() => removeFromInventory(article)}
-                  >
-                    Remove from Watchlist
-                  </StyledButton>
-                ) : (
-                  <StyledButton 
-                    variant="contained" 
-                    onClick={() => addToWatchlist(article)}
-                  >
-                    Add to Watchlist
-                  </StyledButton>
-                )}
-              </RightContent>
-            </ContentWrapper>
-          </StyledCard>
-        </ListItem>
-      ))}
-    </List>
+                  
+                </LeftContent>
+                <RightContent>
+
+                  {userInventory.some(item => item === article.source_title) ? (
+                    <StyledButton 
+                      variant="contained" 
+                      color="secondary" 
+                      onClick={() => removeFromInventory(article)}
+                    >
+                      Remove from Watchlist
+                    </StyledButton>
+                  ) : (
+                    <StyledButton 
+                      variant="contained" 
+                      onClick={() => addToWatchlist(article)}
+                    >
+                      Add to Watchlist
+                    </StyledButton>
+                  )}
+                </RightContent>
+              </ContentWrapper>
+            </StyledCard>
+          </ListItem>
+        ))}
+      </List>
+    </>
   );
   
 };
