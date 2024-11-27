@@ -6,6 +6,7 @@ body {
   }
   
   #container {
+    position: relative;
     max-width: 800px;
     margin: 0 auto;
     background-color: white;
@@ -289,3 +290,46 @@ body {
     font-size: 18px;
     cursor: pointer;
   }
+
+/* Joyride Tour Styles */
+.joyride-tooltip {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  max-width: 300px !important;
+}
+
+.joyride-tooltip__title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #2c3e50 !important;
+  margin-bottom: 10px !important;
+}
+
+.joyride-tooltip__content {
+  font-size: 14px !important;
+  color: #4a4a4a !important;
+}
+
+.joyride-tooltip__button--primary {
+  background-color: #0066cc !important;
+  color: #ffffff !important;
+  border-radius: 4px !important;
+  padding: 8px 16px !important;
+  font-weight: 600 !important;
+}
+
+.joyride-tooltip__button--back {
+  color: #666666 !important;
+}
+
+.joyride-tooltip__button--skip {
+  color: #999999 !important;
+}
+
+.joyride-tooltip__buttons {
+  justify-content: space-between !important;
+}
+
+.joyride-overlay {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+}

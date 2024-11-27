@@ -158,7 +158,7 @@ export const Inventory = ({
           color="primary" 
           variant="contained"
         >
-          Close Inventory
+          Close Watchlist
         </Button>
       </Box>
     </Dialog>

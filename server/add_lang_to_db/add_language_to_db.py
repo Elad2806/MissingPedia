@@ -28,7 +28,7 @@ scripts = [
 ]
 
 # Loop through each script and execute it
-# Run this script using this form: python run_all.py <lang> <yyyymmdd> <db_password>
+# Run this script using this form: python add_language_to_db.py <lang> <yyyymmdd> <db_password>
 for script in scripts:
     try:
         print(f"Running: {' '.join(['python'] + script)}")
